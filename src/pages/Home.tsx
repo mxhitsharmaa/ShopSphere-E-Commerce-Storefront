@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Heart,
@@ -9,61 +10,103 @@ import {
 
 import ProductGrid from "../components/products/ProductGrid";
 import { useProducts } from "../hooks/useProducts";
-import type { Product, SortOption } from "../types/product";
+import CartDrawer, {
+  type CartItem,
+} from "../components/cart/CartDrawer";
+
+import type {
+  Product,
+  ProductFilters,
+  SortOption,
+} from "../types/product";
 
 function Home() {
-  const { products, loading, error } = useProducts();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortOption, setSortOption] =
     useState<SortOption>("featured");
-  const [cart, setCart] = useState<Product[]>([]);
+
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<number[]>([]);
 
+  const filters: ProductFilters = {
+    search: searchQuery,
+    category: selectedCategory,
+    sortBy: sortOption,
+  };
+
+  const { products, loading, error } = useProducts(filters);
+
   const categories = useMemo(
-    () => ["All", ...new Set(products.map((p) => p.category))],
-    [products]
+    () => [
+      "All",
+      "Footwear",
+      "Accessories",
+      "Bags",
+      "Electronics",
+    ],
+    []
   );
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    let result = products.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(query) ||
-        product.category.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query);
-
-      const matchesCategory =
-        selectedCategory === "All" ||
-        product.category === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    });
-
-    switch (sortOption) {
-      case "price-low":
-        result = [...result].sort((a, b) => a.price - b.price);
-        break;
-
-      case "price-high":
-        result = [...result].sort((a, b) => b.price - a.price);
-        break;
-
-      case "rating":
-        result = [...result].sort((a, b) => b.rating - a.rating);
-        break;
-
-      default:
-        break;
-    }
-
-    return result;
-  }, [products, searchQuery, selectedCategory, sortOption]);
+  const cartCount = cart.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   function addToCart(product: Product) {
-    setCart((currentCart) => [...currentCart, product]);
+    if (product.stock <= 0) return;
+
+    setCart((currentCart) => {
+      const existingItem = currentCart.find(
+        (item) => item.product.id === product.id
+      );
+
+      if (existingItem) {
+        if (existingItem.quantity >= product.stock) {
+          return currentCart;
+        }
+
+        return currentCart.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+
+      return [...currentCart, { product, quantity: 1 }];
+    });
+  }
+
+  function increaseQuantity(productId: number) {
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.product.id === productId &&
+        item.quantity < item.product.stock
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      )
+    );
+  }
+
+  function decreaseQuantity(productId: number) {
+    setCart((currentCart) =>
+      currentCart
+        .map((item) =>
+          item.product.id === productId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  }
+
+  function removeFromCart(productId: number) {
+    setCart((currentCart) =>
+      currentCart.filter(
+        (item) => item.product.id !== productId
+      )
+    );
   }
 
   function toggleWishlist(product: Product) {
@@ -76,13 +119,9 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      {/* Announcement Bar */}
-
       <div className="bg-slate-950 px-4 py-2.5 text-center text-xs font-medium tracking-wide text-white">
         FREE SHIPPING ON ORDERS OVER ₹2,999
       </div>
-
-      {/* Header */}
 
       <header className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 lg:px-8">
@@ -90,19 +129,16 @@ function Home() {
             href="#home"
             className="shrink-0 text-2xl font-black tracking-tight"
           >
-            shop
-            <span className="text-orange-500">sphere.</span>
+            shop<span className="text-orange-500">sphere.</span>
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
             <a href="#home" className="hover:text-orange-500">
               Home
             </a>
-
             <a href="#products" className="hover:text-orange-500">
               Shop
             </a>
-
             <a href="#benefits" className="hover:text-orange-500">
               About
             </a>
@@ -120,16 +156,11 @@ function Home() {
             <button
               type="button"
               aria-label={`Wishlist, ${wishlistIds.length} items`}
-              onClick={() => {
-                setSelectedCategory("All");
-                setSearchQuery("");
-
-                document
-                  .getElementById("products")
-                  ?.scrollIntoView({
-                    behavior: "smooth",
-                  });
-              }}
+              onClick={() =>
+                document.getElementById("products")?.scrollIntoView({
+                  behavior: "smooth",
+                })
+              }
               className="relative rounded-full p-2 hover:bg-slate-100"
             >
               <Heart size={20} />
@@ -143,33 +174,14 @@ function Home() {
 
             <button
               type="button"
-              aria-label={`${cart.length} items in shopping bag`}
-              onClick={() => {
-                if (cart.length > 0) {
-                  window.alert(
-                    cart
-                      .map(
-                        (item, index) =>
-                          `${index + 1}. ${item.name} — ₹${item.price.toLocaleString(
-                            "en-IN"
-                          )}`
-                      )
-                      .join("\n")
-                  );
-                } else {
-                  document
-                    .getElementById("products")
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                    });
-                }
-              }}
+              aria-label={`${cartCount} items in shopping bag`}
+              onClick={() => setIsCartOpen(true)}
               className="relative rounded-full p-2 hover:bg-slate-100"
             >
               <ShoppingBag size={20} />
 
               <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] text-white">
-                {cart.length}
+                {cartCount}
               </span>
             </button>
           </div>
@@ -177,8 +189,6 @@ function Home() {
       </header>
 
       <main>
-        {/* Hero */}
-
         <section
           id="home"
           className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-12 sm:py-16 lg:grid-cols-2 lg:px-8 lg:py-20"
@@ -198,9 +208,8 @@ function Home() {
             </h1>
 
             <p className="mt-6 max-w-md text-base leading-7 text-slate-500 sm:text-lg">
-              Thoughtfully selected essentials,
-              timeless designs, and everyday products
-              made to fit your lifestyle.
+              Thoughtfully selected essentials, timeless designs,
+              and everyday products made to fit your lifestyle.
             </p>
 
             <a
@@ -229,15 +238,12 @@ function Home() {
               <p className="text-xs text-slate-500">
                 Curated for you
               </p>
-
               <p className="mt-1 text-lg font-bold">
                 The new essentials
               </p>
             </div>
           </div>
         </section>
-
-        {/* Products */}
 
         <section
           id="products"
@@ -257,7 +263,7 @@ function Home() {
                 <p className="mt-3 text-slate-500">
                   {loading
                     ? "Loading products..."
-                    : `${filteredProducts.length} products to explore`}
+                    : `${products.length} products to explore`}
                 </p>
               </div>
 
@@ -267,43 +273,25 @@ function Home() {
                 <select
                   value={sortOption}
                   onChange={(event) =>
-                    setSortOption(
-                      event.target.value as SortOption
-                    )
+                    setSortOption(event.target.value as SortOption)
                   }
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-orange-500"
                 >
-                  <option value="featured">
-                    Featured
-                  </option>
-
-                  <option value="price-low">
-                    Price: Low to high
-                  </option>
-
-                  <option value="price-high">
-                    Price: High to low
-                  </option>
-
-                  <option value="rating">
-                    Top rated
-                  </option>
+                  <option value="featured">Featured</option>
+                  <option value="price-low">Price: Low to high</option>
+                  <option value="price-high">Price: High to low</option>
+                  <option value="rating">Top rated</option>
                 </select>
               </label>
             </div>
 
             <label className="mt-8 flex max-w-xl items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 focus-within:border-orange-500">
-              <Search
-                size={20}
-                className="shrink-0 text-slate-400"
-              />
+              <Search size={20} className="shrink-0 text-slate-400" />
 
               <input
                 type="search"
                 value={searchQuery}
-                onChange={(event) =>
-                  setSearchQuery(event.target.value)
-                }
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search sneakers, watches, bags..."
                 aria-label="Search products"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
@@ -315,12 +303,8 @@ function Home() {
                 <button
                   key={category}
                   type="button"
-                  aria-pressed={
-                    selectedCategory === category
-                  }
-                  onClick={() =>
-                    setSelectedCategory(category)
-                  }
+                  aria-pressed={selectedCategory === category}
+                  onClick={() => setSelectedCategory(category)}
                   className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
                     selectedCategory === category
                       ? "bg-slate-950 text-white"
@@ -343,7 +327,7 @@ function Home() {
                 </div>
               ) : (
                 <ProductGrid
-                  products={filteredProducts}
+                  products={products}
                   wishlistIds={wishlistIds}
                   onAddToCart={addToCart}
                   onToggleWishlist={toggleWishlist}
@@ -353,58 +337,32 @@ function Home() {
           </div>
         </section>
 
-        {/* Benefits */}
-
         <section
           id="benefits"
           className="px-5 py-16 lg:px-8"
         >
           <div className="mx-auto grid max-w-7xl gap-10 sm:grid-cols-3">
             <div>
-              <Truck
-                className="text-orange-500"
-                size={30}
-              />
-
-              <h3 className="mt-4 font-bold">
-                Delivery made easy
-              </h3>
-
+              <Truck className="text-orange-500" size={30} />
+              <h3 className="mt-4 font-bold">Delivery made easy</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                A straightforward experience from
-                browsing to delivery.
+                A straightforward experience from browsing to delivery.
               </p>
             </div>
 
             <div>
-              <Heart
-                className="text-orange-500"
-                size={30}
-              />
-
-              <h3 className="mt-4 font-bold">
-                Thoughtful selection
-              </h3>
-
+              <Heart className="text-orange-500" size={30} />
+              <h3 className="mt-4 font-bold">Thoughtful selection</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Discover a curated collection of
-                everyday essentials.
+                Discover a curated collection of everyday essentials.
               </p>
             </div>
 
             <div>
-              <ShoppingBag
-                className="text-orange-500"
-                size={30}
-              />
-
-              <h3 className="mt-4 font-bold">
-                Easy shopping
-              </h3>
-
+              <ShoppingBag className="text-orange-500" size={30} />
+              <h3 className="mt-4 font-bold">Easy shopping</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                A responsive storefront for desktop,
-                tablet, and mobile.
+                A responsive storefront for desktop, tablet, and mobile.
               </p>
             </div>
           </div>
@@ -412,9 +370,17 @@ function Home() {
       </main>
 
       <footer className="bg-slate-950 px-5 py-8 text-center text-sm text-slate-400">
-        © {new Date().getFullYear()} ShopSphere. Built
-        with React and TypeScript.
+        © {new Date().getFullYear()} ShopSphere. Built with React and TypeScript.
       </footer>
+
+      <CartDrawer
+        isOpen={isCartOpen}
+        items={cart}
+        onClose={() => setIsCartOpen(false)}
+        onIncrease={increaseQuantity}
+        onDecrease={decreaseQuantity}
+        onRemove={removeFromCart}
+      />
     </div>
   );
 }

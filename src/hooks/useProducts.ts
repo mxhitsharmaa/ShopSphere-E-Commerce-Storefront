@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
-import { getProducts } from "../services/products";
-import type { Product } from "../types/product";
+import { getFilteredProducts } from "../services/products";
+import type { Product, ProductFilters } from "../types/product";
 
 interface UseProductsReturn {
   products: Product[];
@@ -9,7 +9,9 @@ interface UseProductsReturn {
   error: string | null;
 }
 
-export function useProducts(): UseProductsReturn {
+export function useProducts(
+  filters: ProductFilters
+): UseProductsReturn {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export function useProducts(): UseProductsReturn {
         setLoading(true);
         setError(null);
 
-        const data = await getProducts();
+        const data = await getFilteredProducts(filters);
 
         if (isActive) {
           setProducts(data);
@@ -43,7 +45,7 @@ export function useProducts(): UseProductsReturn {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [filters.search, filters.category, filters.sortBy]);
 
   return { products, loading, error };
 }

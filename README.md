@@ -2,7 +2,8 @@
 Your local README content
 =======
 README content from GitHub
->>>>>>> origin/main<<<<<<< HEAD
+>>>>>>> origin/main;<<<<<<< HEAD
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

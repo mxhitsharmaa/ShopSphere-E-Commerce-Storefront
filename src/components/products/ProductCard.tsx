@@ -15,6 +15,9 @@ function ProductCard({
   onAddToCart,
   onToggleWishlist,
 }: ProductCardProps) {
+  const isOutOfStock = product.stock <= 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
+
   return (
     <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl">
       <div className={`relative overflow-hidden ${product.color}`}>
@@ -35,7 +38,9 @@ function ProductCard({
           aria-pressed={isWishlisted}
           onClick={() => onToggleWishlist(product)}
           className={`absolute right-3 top-3 rounded-full bg-white p-2.5 shadow-sm transition ${
-            isWishlisted ? "text-rose-500" : "text-slate-700 hover:text-rose-500"
+            isWishlisted
+              ? "text-rose-500"
+              : "text-slate-700 hover:text-rose-500"
           }`}
         >
           <Heart
@@ -44,9 +49,15 @@ function ProductCard({
           />
         </button>
 
-        {product.stock <= 5 && (
+        {isLowStock && (
           <span className="absolute bottom-3 left-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-600 shadow-sm">
-            Low stock
+            Only {product.stock} left
+          </span>
+        )}
+
+        {isOutOfStock && (
+          <span className="absolute bottom-3 left-3 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+            Out of stock
           </span>
         )}
       </div>
@@ -79,12 +90,12 @@ function ProductCard({
 
           <button
             type="button"
-            disabled={product.stock === 0}
+            disabled={isOutOfStock}
             onClick={() => onAddToCart(product)}
             className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             <ShoppingBag size={15} />
-            {product.stock === 0 ? "Sold out" : "Add to bag"}
+            {isOutOfStock ? "Sold out" : "Add to bag"}
           </button>
         </div>
       </div>

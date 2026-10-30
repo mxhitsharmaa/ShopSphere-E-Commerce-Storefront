@@ -21,6 +21,7 @@ function ProductGrid({
         <h3 className="text-xl font-bold text-slate-900">
           No products found
         </h3>
+
         <p className="mt-2 text-sm text-slate-500">
           Try another search term or select a different category.
         </p>
@@ -29,17 +30,23 @@ function ProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          isWishlisted={wishlistIds.includes(product.id)}
-          onAddToCart={onAddToCart}
-          onToggleWishlist={onToggleWishlist}
-        />
-      ))}
-    </div>
+    <section aria-label="Product collection">
+      <p className="mb-5 text-sm text-slate-500">
+        Showing {products.length} products
+      </p>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            isWishlisted={wishlistIds.includes(product.id)}
+            onAddToCart={onAddToCart}
+            onToggleWishlist={onToggleWishlist}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

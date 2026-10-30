@@ -16,3 +16,9 @@ export type SortOption =
   | "price-low"
   | "price-high"
   | "rating";
+
+export interface ProductFilters {
+  category: string;
+  search: string;
+  sortBy: SortOption;
+}
